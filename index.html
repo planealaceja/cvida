@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encuesta de Calidad de Vida · La Ceja del Tambo 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --azul-institucional:#16385F;
+  --azul-claro:#3C6E9F;
+  --verde-flores:#3E8E5C;
+  --verde-claro:#E8F3EC;
+  --fondo:#F4F6F8;
+  --tarjeta:#FFFFFF;
+  --texto:#1F2A33;
+  --texto-suave:#5B6B76;
+  --borde:#DCE3E8;
+  --rojo:#C0392B;
+  --radius:14px;
+  --sombra:0 2px 10px rgba(22,56,95,0.07);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--fondo);
+  color:var(--texto);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;}
+.app{max-width:760px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+/* HEADER */
+header.top{
+  background:linear-gradient(135deg,var(--azul-institucional) 0%,#1d4a78 100%);
+  color:#fff;padding:18px 20px;display:flex;align-items:center;gap:14px;
+  position:sticky;top:0;z-index:50;
+}
+header.top .escudo{
+  width:46px;height:46px;border-radius:10px;background:#fff;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+header.top .escudo img{width:100%;height:100%;object-fit:contain;}
+header.top .escudo svg{width:30px;height:30px;}
+header.top .titulos{flex:1;min-width:0;}
+header.top .titulos .eyebrow{font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.78;font-weight:600;}
+header.top .titulos h1{font-size:16.5px;line-height:1.25;color:#fff;}
+
+.progress-track{height:4px;background:rgba(255,255,255,0.18);}
+.progress-fill{height:100%;background:#7FD89B;transition:width .4s ease;}
+
+main{flex:1;padding:22px 18px 100px;}
+
+/* INTRO / CONSENT */
+.intro-card{background:var(--tarjeta);border-radius:var(--radius);box-shadow:var(--sombra);padding:28px 24px;}
+.intro-card .flor{font-size:34px;margin-bottom:6px;}
+.intro-card h2{font-size:22px;color:var(--azul-institucional);margin-bottom:6px;}
+.intro-card p{color:var(--texto-suave);font-size:15px;}
+.dato-box{
+  background:var(--verde-claro);border-left:4px solid var(--verde-flores);
+  border-radius:10px;padding:14px 16px;margin:18px 0;font-size:13.5px;color:#244534;
+}
+.legal-box{
+  background:#FBF6E9;border-left:4px solid #C99A2E;border-radius:10px;
+  padding:16px 18px;margin:18px 0;font-size:13.5px;color:#5A4A1E;
+}
+.legal-box h3{font-size:14px;color:#5A4A1E;margin-bottom:8px;}
+.legal-box ul{margin:8px 0 0;padding-left:18px;}
+.legal-box li{margin-bottom:4px;}
+.consent-check{
+  display:flex;align-items:flex-start;gap:10px;margin-top:18px;background:#F4F6F8;
+  padding:14px;border-radius:10px;cursor:pointer;border:1.5px solid var(--borde);
+  transition:border-color .2s;
+}
+.consent-check.checked{border-color:var(--verde-flores);background:var(--verde-claro);}
+.consent-check input{margin-top:3px;width:18px;height:18px;flex-shrink:0;accent-color:var(--verde-flores);}
+.consent-check span{font-size:13.5px;color:var(--texto);}
+
+/* SECTION HEADER */
+.dim-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.dim-badge{
+  width:38px;height:38px;border-radius:50%;background:var(--azul-institucional);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:700;
+  flex-shrink:0;font-size:15px;
+}
+.dim-header h2{font-size:18px;color:var(--azul-institucional);line-height:1.3;}
+.dim-header .dim-sub{font-size:12px;color:var(--texto-suave);font-weight:500;text-transform:uppercase;letter-spacing:.03em;}
+
+/* QUESTION CARD */
+.q-card{
+  background:var(--tarjeta);border-radius:var(--radius);box-shadow:var(--sombra);
+  padding:20px;margin-bottom:14px;
+}
+.q-text{font-size:15px;font-weight:600;color:var(--texto);margin-bottom:3px;display:flex;align-items:flex-start;gap:6px;}
+.q-text .req{color:var(--rojo);font-size:13px;}
+.q-help{font-size:12.5px;color:var(--texto-suave);margin-bottom:12px;}
+.q-help.hidden{display:none;}
+.tooltip{
+  display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
+  border-radius:50%;background:var(--borde);color:var(--texto-suave);font-size:10.5px;font-weight:700;
+  cursor:help;flex-shrink:0;margin-top:2px;
+}
+
+.options{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.opt-chip{
+  border:1.5px solid var(--borde);background:#fff;padding:9px 16px;border-radius:999px;
+  font-size:13.5px;color:var(--texto);cursor:pointer;transition:all .15s ease;user-select:none;
+  font-weight:500;
+}
+.opt-chip:hover{border-color:var(--azul-claro);}
+.opt-chip.selected{
+  background:var(--azul-institucional);border-color:var(--azul-institucional);color:#fff;
+}
+.opt-chip.selected.multi{background:var(--verde-flores);border-color:var(--verde-flores);}
+.opt-grid.scale .opt-chip{flex:1 1 30%;text-align:center;min-width:90px;white-space:normal;}
+.opt-grid.scale{display:flex;flex-wrap:wrap;width:100%;gap:6px;}
+.opt-grid.numgrid .opt-chip{min-width:46px;text-align:center;}
+
+.q-select{
+  width:100%;padding:12px 14px;border:1.5px solid var(--borde);border-radius:10px;
+  font-size:14.5px;font-family:'Inter',sans-serif;color:var(--texto);background:#fff;
+  margin-top:6px;cursor:pointer;
+}
+.q-select:focus{outline:none;border-color:var(--azul-claro);}
+
+.other-input{
+  margin-top:10px;width:100%;padding:10px 12px;border:1.5px solid var(--borde);border-radius:8px;
+  font-size:13.5px;font-family:'Inter',sans-serif;display:none;
+}
+.other-input.show{display:block;}
+
+/* NAV */
+.nav-bar{
+  position:sticky;bottom:0;background:#fff;border-top:1px solid var(--borde);
+  padding:14px 18px;display:flex;gap:10px;justify-content:space-between;
+  box-shadow:0 -2px 10px rgba(0,0,0,0.04);
+}
+.btn{
+  border:none;border-radius:999px;padding:13px 26px;font-size:14.5px;font-weight:600;
+  cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s ease;
+}
+.btn-primary{background:var(--azul-institucional);color:#fff;}
+.btn-primary:hover{background:#0f2c49;}
+.btn-primary:disabled{background:#A9B6C0;cursor:not-allowed;}
+.btn-ghost{background:transparent;color:var(--texto-suave);border:1.5px solid var(--borde);}
+.btn-ghost:hover{border-color:var(--azul-claro);color:var(--azul-institucional);}
+
+.alert-missing{
+  font-size:12.5px;color:var(--rojo);margin-top:8px;display:none;
+}
+.alert-missing.show{display:block;}
+
+/* FINAL */
+.final-card{background:var(--tarjeta);border-radius:var(--radius);box-shadow:var(--sombra);padding:36px 26px;text-align:center;}
+.final-card .check{font-size:48px;margin-bottom:10px;}
+.final-card h2{color:var(--azul-institucional);font-size:21px;margin-bottom:8px;}
+.final-card p{color:var(--texto-suave);font-size:14.5px;}
+
+footer.foot{text-align:center;padding:18px;font-size:11.5px;color:#8A98A3;}
+
+@media(max-width:480px){
+  header.top .titulos h1{font-size:14.5px;}
+  .intro-card{padding:22px 18px;}
+}
+.hidden-q{display:none !important;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="escudo" id="escudoBox">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="48" fill="#16385F"/>
+        <path d="M50 18 C 62 28, 62 42, 50 52 C 38 42, 38 28, 50 18 Z" fill="#7FD89B"/>
+        <path d="M50 52 L50 82" stroke="#fff" stroke-width="3"/>
+        <path d="M34 70 Q50 60 66 70" stroke="#fff" stroke-width="3" fill="none"/>
+      </svg>
+    </div>
+    <div class="titulos">
+      <div class="eyebrow">Alcaldía de La Ceja del Tambo · Antioquia</div>
+      <h1>Encuesta de Calidad de Vida Municipio de La Ceja del Tambo 2026</h1>
+    </div>
+  </header>
+  <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  <main id="main"></main>
+</div>
+<footer class="foot">Observatorio Municipal · Secretaría de Planeación · La Ceja del Tambo</footer>
+<script src="encuesta-data.js"></script>
+<script src="encuesta-app.js"></script>
+</body>
+</html>

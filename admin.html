@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resultados · Encuesta de Calidad de Vida 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --azul-institucional:#16385F; --azul-claro:#3C6E9F; --verde-flores:#3E8E5C;
+  --verde-claro:#E8F3EC; --fondo:#F4F6F8; --tarjeta:#FFFFFF; --texto:#1F2A33;
+  --texto-suave:#5B6B76; --borde:#DCE3E8; --radius:14px;
+  --sombra:0 2px 10px rgba(22,56,95,0.07);
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);}
+h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;}
+header.top{
+  background:linear-gradient(135deg,var(--azul-institucional) 0%,#1d4a78 100%);color:#fff;
+  padding:16px 22px;display:flex;align-items:center;gap:14px;
+}
+header.top .escudo{width:42px;height:42px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
+header.top .escudo svg{width:26px;height:26px;}
+header.top h1{font-size:17px;color:#fff;}
+header.top .eyebrow{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;opacity:.78;font-weight:600;}
+header.top .right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+header.top button{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.3);color:#fff;
+  padding:7px 14px;border-radius:999px;font-size:12.5px;cursor:pointer;}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 18px 60px;}
+
+/* LOGIN */
+.login-card{max-width:380px;margin:60px auto;background:var(--tarjeta);border-radius:var(--radius);
+  box-shadow:var(--sombra);padding:30px;text-align:center;}
+.login-card h2{color:var(--azul-institucional);font-size:19px;margin-bottom:6px;}
+.login-card p{color:var(--texto-suave);font-size:13px;margin-bottom:18px;}
+.login-card input{width:100%;padding:11px 12px;border:1.5px solid var(--borde);border-radius:8px;
+  margin-bottom:10px;font-size:14px;font-family:'Inter',sans-serif;}
+.login-card button{width:100%;padding:12px;border:none;border-radius:999px;background:var(--azul-institucional);
+  color:#fff;font-weight:600;cursor:pointer;font-size:14px;}
+.login-error{color:#C0392B;font-size:12.5px;margin-top:8px;display:none;}
+.login-error.show{display:block;}
+
+/* KPIs */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:22px;}
+.kpi{background:var(--tarjeta);border-radius:var(--radius);box-shadow:var(--sombra);padding:16px 18px;}
+.kpi .num{font-family:'Fraunces',serif;font-size:26px;color:var(--azul-institucional);font-weight:700;}
+.kpi .label{font-size:12px;color:var(--texto-suave);margin-top:2px;}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px;}
+.toolbar select, .toolbar button{
+  padding:9px 14px;border-radius:999px;border:1.5px solid var(--borde);background:#fff;font-size:13px;
+  font-family:'Inter',sans-serif;cursor:pointer;
+}
+.toolbar button.primary{background:var(--azul-institucional);color:#fff;border-color:var(--azul-institucional);}
+
+.dim-block{margin-bottom:28px;}
+.dim-block h2{font-size:16px;color:var(--azul-institucional);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--borde);}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;}
+.chart-card{background:var(--tarjeta);border-radius:var(--radius);box-shadow:var(--sombra);padding:16px;}
+.chart-card h3{font-size:13px;color:var(--texto);margin-bottom:10px;font-weight:600;font-family:'Inter',sans-serif;line-height:1.35;}
+.chart-card .n{font-size:11px;color:var(--texto-suave);font-weight:400;}
+.chart-card canvas{max-height:220px;}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--texto-suave);}
+.loading{text-align:center;padding:60px 20px;color:var(--texto-suave);}
+
+/* TABS */
+.tabs{display:flex;gap:6px;margin-bottom:18px;}
+.tab-btn{
+  padding:9px 16px;border-radius:999px;border:1.5px solid var(--borde);background:#fff;
+  font-size:13px;font-family:'Inter',sans-serif;cursor:pointer;color:var(--texto-suave);font-weight:600;
+}
+.tab-btn.active{background:var(--azul-institucional);color:#fff;border-color:var(--azul-institucional);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* DISTRIBUCIÓN GEOGRÁFICA */
+.geo-block{margin-bottom:26px;}
+.geo-block h2{font-size:16px;color:var(--azul-institucional);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--borde);}
+
+/* TABLA DE REGISTROS */
+.table-wrap{background:var(--tarjeta);border-radius:var(--radius);box-shadow:var(--sombra);overflow-x:auto;}
+table.registros{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.registros th{
+  text-align:left;padding:10px 12px;background:#F1F4F7;color:var(--texto-suave);
+  font-weight:600;white-space:nowrap;position:sticky;top:0;
+}
+table.registros td{padding:9px 12px;border-top:1px solid var(--borde);white-space:nowrap;}
+table.registros tr:hover td{background:#FAFBFC;}
+table.registros .row-actions{display:flex;gap:6px;}
+.mini-btn{
+  border:1.5px solid var(--borde);background:#fff;border-radius:7px;padding:5px 10px;
+  font-size:11.5px;cursor:pointer;color:var(--texto);
+}
+.mini-btn.danger{color:#C0392B;border-color:#F1CFC9;}
+.mini-btn.danger:hover{background:#FBEAE7;}
+.mini-btn:hover{border-color:var(--azul-claro);}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-size:12.5px;color:var(--texto-suave);}
+
+/* MODAL */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(22,32,43,0.55);display:none;
+  align-items:center;justify-content:center;z-index:100;padding:20px;
+}
+.modal-overlay.show{display:flex;}
+.modal-box{background:#fff;border-radius:var(--radius);padding:22px;max-width:560px;width:100%;
+  max-height:85vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.25);}
+.modal-box h3{font-size:16px;color:var(--azul-institucional);margin-bottom:4px;}
+.modal-box .sub{font-size:12px;color:var(--texto-suave);margin-bottom:14px;}
+.modal-box textarea{
+  width:100%;min-height:320px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;
+  padding:12px;border:1.5px solid var(--borde);border-radius:8px;resize:vertical;
+}
+.modal-box .modal-error{color:#C0392B;font-size:12.5px;margin-top:8px;display:none;}
+.modal-box .modal-error.show{display:block;}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;}
+.modal-actions button{
+  border:none;border-radius:999px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;
+}
+.modal-actions .cancel{background:#F1F4F7;color:var(--texto);}
+.modal-actions .save{background:var(--azul-institucional);color:#fff;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-card">
+  <h2>🔒 Acceso al panel de resultados</h2>
+  <p>Solo personal autorizado del Observatorio Municipal puede consultar las respuestas.</p>
+  <input type="email" id="loginEmail" placeholder="Correo institucional">
+  <input type="password" id="loginPass" placeholder="Contraseña">
+  <button id="loginBtn">Ingresar</button>
+  <div class="login-error" id="loginError">Credenciales incorrectas o sin acceso.</div>
+</div>
+
+<div id="dashboard" style="display:none;">
+  <header class="top">
+    <div class="escudo">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="48" fill="#16385F"/>
+        <path d="M50 18 C 62 28, 62 42, 50 52 C 38 42, 38 28, 50 18 Z" fill="#7FD89B"/>
+        <path d="M50 52 L50 82" stroke="#fff" stroke-width="3"/>
+        <path d="M34 70 Q50 60 66 70" stroke="#fff" stroke-width="3" fill="none"/>
+      </svg>
+    </div>
+    <div>
+      <div class="eyebrow">Alcaldía de La Ceja del Tambo · Observatorio Municipal</div>
+      <h1>Resultados · Encuesta de Calidad de Vida 2026</h1>
+    </div>
+    <div class="right">
+      <button id="exportCsvBtn">⬇ CSV</button>
+      <button id="exportXlsxBtn">⬇ Excel (.xlsx)</button>
+      <button id="logoutBtn">Salir</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="panelEstadisticas">📊 Panel de estadísticas</button>
+      <button class="tab-btn" data-tab="panelRegistros">🗂 Registros individuales</button>
+    </div>
+
+    <div class="tab-panel active" id="panelEstadisticas">
+      <div class="geo-block" id="geoBlock"></div>
+
+      <div class="toolbar">
+        <select id="filterDim"></select>
+        <select id="filterLoc"></select>
+        <button id="refreshBtn" class="primary">↻ Actualizar datos</button>
+      </div>
+      <div id="content"><div class="loading">Cargando respuestas…</div></div>
+    </div>
+
+    <div class="tab-panel" id="panelRegistros">
+      <div class="toolbar">
+        <span style="font-size:12.5px;color:var(--texto-suave);">Edite con cuidado: los cambios se
+          guardan directamente en la base de datos.</span>
+      </div>
+      <div class="table-wrap">
+        <table class="registros">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Género</th>
+              <th>Zona</th>
+              <th>Barrio / Vereda</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaRegistrosBody"></tbody>
+        </table>
+        <div class="pager" id="pagerInfo"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <h3>Editar respuesta</h3>
+    <div class="sub">Edite el JSON de las respuestas de este registro. Guarde con cuidado: el
+      formato debe seguir siendo un JSON válido.</div>
+    <textarea id="editTextarea" spellcheck="false"></textarea>
+    <div class="modal-error" id="editError">El contenido no es un JSON válido. Revise la sintaxis.</div>
+    <div class="modal-actions">
+      <button class="cancel" id="editCancelBtn">Cancelar</button>
+      <button class="save" id="editSaveBtn">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<script src="encuesta-data.js"></script>
+<script src="admin-app.js"></script>
+</body>
+</html>
