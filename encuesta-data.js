@@ -275,12 +275,6 @@ const ENCUESTA_SECCIONES = [
     { id:"d6_9", text:"¿Brinda a las personas mayores a su cargo alimentación completa (3 comidas diarias) y balanceada?",
       type:"single", condition:{q:"d6_8", equals:"Sí"}, options:["Sí","No"] },
 
-    { id:"d6_10", text:"¿En su grupo familiar alguien ha sido contagiado con COVID-19?", type:"single",
-      options:["Sí","No"] },
-    { id:"d6_11", text:"¿Se siente afectado por la pandemia en alguno de los siguientes aspectos?", type:"multi",
-      options:["Salud mental","Económicamente","Socialmente","No me siento afectado"],
-      exclusive:["No me siento afectado"] },
-
     { id:"d6_12", text:"¿Cómo percibe su estado de salud actual?", type:"single", grid:"scale",
       options:["Excelente","Buena","Regular","Mala","Muy mala"] },
 
