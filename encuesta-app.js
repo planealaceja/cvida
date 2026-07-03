@@ -499,7 +499,7 @@ async function enviarRespuestas() {
           "Authorization": `Bearer ${CONFIG.SUPABASE_ANON_KEY}`,
           "Prefer": "return=minimal"
         },
-        body: JSON.stringify([{ respuestas: payload, dispositivo: navigator.userAgent }])
+        body: JSON.stringify([{ respuestas: payload, dispositivo: navigator.userAgent, anio: new Date().getFullYear() }])
       });
       if (!resp.ok) throw new Error("Error HTTP " + resp.status);
     } catch (err) {
