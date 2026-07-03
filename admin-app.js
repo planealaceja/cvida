@@ -310,7 +310,7 @@ function renderTablaRegistros() {
   tbody.innerHTML = "";
 
   if (!TODOS_LOS_REGISTROS.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--texto-suave);padding:24px;">
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--texto-suave);padding:24px;">
       Todavía no hay respuestas registradas.</td></tr>`;
     pager.textContent = "";
     return;
@@ -320,12 +320,14 @@ function renderTablaRegistros() {
     const fecha = new Date(r.created_at).toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" });
     const zona = r.respuestas.g5 || "—";
     const sector = r.respuestas.g5_barrio || r.respuestas.g5_vereda || "—";
+     const comentario = r.respuestas.comentario_adicional || "—";
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${fecha}</td>
       <td>${r.respuestas.g1 || "—"}</td>
       <td>${zona}</td>
       <td>${sector}</td>
+      <td style="max-width:350px;white-space:normal;">${comentario}</td>
       <td class="row-actions">
         <button class="mini-btn" data-action="edit" data-id="${r.id}">✎ Editar</button>
         <button class="mini-btn danger" data-action="delete" data-id="${r.id}">🗑 Eliminar</button>
