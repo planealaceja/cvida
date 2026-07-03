@@ -189,7 +189,7 @@ const ENCUESTA_SECCIONES = [
       exclusive:["No tengo vehículo"] },
 
     { id:"d3_15", text:"¿Cuál es el medio de transporte público que prefiere para movilizarse?", type:"single",
-      options:["Bus o colectivo","Taxi","Taxi por plataformas electrónicas"] },
+      options:["Bus o colectivo","Taxi","Taxi por plataformas electrónicas","no utilizo transporte público"] },
 
     { id:"d3_16", text:"Semanalmente, ¿con qué frecuencia sale de La Ceja?", type:"single",
       options:["1 a 3 veces","4 o más veces","No sale"] },
