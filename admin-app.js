@@ -85,7 +85,7 @@ async function cargarDatos() {
   document.getElementById("content").innerHTML = `<div class="loading">Cargando respuestas…</div>`;
   const { data, error } = await supabaseClient
     .from(ADMIN_CONFIG.TABLE)
-    .select("id, created_at, respuestas")
+    .select("id, created_at, anio, respuestas")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -94,6 +94,7 @@ async function cargarDatos() {
     return;
   }
   TODOS_LOS_REGISTROS = data || [];
+   poblarFiltroAnios();
   poblarFiltroUbicacion();
   renderTodo();
   renderTablaRegistros();
@@ -105,6 +106,25 @@ function poblarFiltroDimensiones() {
     ENCUESTA_SECCIONES.map(s => `<option value="${s.id}">${s.titulo}</option>`).join("");
 }
 
+function poblarFiltroAnios() {
+
+    const sel = document.getElementById("filterYear");
+
+    const anios = [...new Set(
+        TODOS_LOS_REGISTROS
+            .map(r => r.anio)
+            .filter(a => a != null)
+    )];
+
+    anios.sort((a,b)=>a-b);
+
+    sel.innerHTML =
+        '<option value="all">Todos los años</option>' +
+        anios.map(a =>
+            `<option value="${a}">${a}</option>`
+        ).join("");
+
+}
 // El filtro de ubicación combina las opciones oficiales de barrio y vereda
 // definidas en encuesta-data.js, para poder identificar de qué sector
 // específico provienen las respuestas.
