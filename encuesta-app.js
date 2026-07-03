@@ -472,8 +472,8 @@ function renderFinal() {
       <div class="check">🌼</div>
       <h2>¡Gracias por participar!</h2>
       <p>Su respuesta fue registrada correctamente y será parte del análisis de calidad de
-      vida del municipio de La Ceja del Tambo. Su aporte ayuda a construir mejores políticas
-      públicas para toda la comunidad.</p>
+      vida del municipio de La Ceja del Tambo. Su aporte ayuda a construir un municipio mejor
+      para todos.</p>
     </div>`;
   return wrap;
 }
