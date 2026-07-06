@@ -327,7 +327,9 @@ function renderTablaRegistros() {
       <td>${r.respuestas.g1 || "—"}</td>
       <td>${zona}</td>
       <td>${sector}</td>
-      <td style="max-width:350px;white-space:normal;">${comentario}</td>
+      <td style="max-width:350px; white-space:normal; line-height:1.4;">
+       ${comentario}
+      </td>
       <td class="row-actions">
         <button class="mini-btn" data-action="edit" data-id="${r.id}">✎ Editar</button>
         <button class="mini-btn danger" data-action="delete" data-id="${r.id}">🗑 Eliminar</button>
