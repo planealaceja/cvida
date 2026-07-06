@@ -58,9 +58,18 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
 });
 document.getElementById("refreshBtn").addEventListener("click", cargarDatos);
 document.getElementById("filterDim").addEventListener("change", renderTodo);
-document.getElementById("filterLoc").addEventListener("change", renderTodo);
+document.getElementById("filterYear").addEventListener("change", alCambiarFiltrosDeAlcance);
+document.getElementById("filterLoc").addEventListener("change", alCambiarFiltrosDeAlcance);
 document.getElementById("exportCsvBtn").addEventListener("click", exportarCSV);
 document.getElementById("exportXlsxBtn").addEventListener("click", exportarXLSX);
+
+// El año y el sector acotan qué registros se ven en todo el panel (gráficos,
+// KPIs, tabla de registros individuales y exportaciones), así que al cambiar
+// cualquiera de los dos hay que refrescar tanto las estadísticas como la tabla.
+function alCambiarFiltrosDeAlcance() {
+  renderTodo();
+  renderTablaRegistros();
+}
 
 // Si ya hay sesión activa (token guardado por supabase-js), entrar directo
 window.addEventListener("DOMContentLoaded", async () => {
@@ -107,29 +116,34 @@ function poblarFiltroDimensiones() {
 }
 
 function poblarFiltroAnios() {
+  const sel = document.getElementById("filterYear");
+  const valorPrevio = sel.value;
 
-    const sel = document.getElementById("filterYear");
+  const anios = [...new Set(
+    TODOS_LOS_REGISTROS
+      .map(r => r.anio)
+      .filter(a => a != null)
+  )];
 
-    const anios = [...new Set(
-        TODOS_LOS_REGISTROS
-            .map(r => r.anio)
-            .filter(a => a != null)
-    )];
+  // Más reciente primero: así, cuando llegue 2027 (o cualquier año nuevo),
+  // aparecerá arriba del todo sin tener que tocar el código.
+  anios.sort((a, b) => b - a);
 
-    anios.sort((a,b)=>a-b);
+  sel.innerHTML =
+    '<option value="all">Todos los años</option>' +
+    anios.map(a => `<option value="${a}">${a}</option>`).join("");
 
-    sel.innerHTML =
-        '<option value="all">Todos los años</option>' +
-        anios.map(a =>
-            `<option value="${a}">${a}</option>`
-        ).join("");
-
+  // Conserva la selección del usuario si sigue existiendo tras recargar los datos.
+  if (valorPrevio && [...sel.options].some(o => o.value === valorPrevio)) {
+    sel.value = valorPrevio;
+  }
 }
 // El filtro de ubicación combina las opciones oficiales de barrio y vereda
 // definidas en encuesta-data.js, para poder identificar de qué sector
 // específico provienen las respuestas.
 function poblarFiltroUbicacion() {
   const sel = document.getElementById("filterLoc");
+  const valorPrevio = sel.value;
   const general = ENCUESTA_SECCIONES.find(s => s.id === "general");
   const pBarrio = general.preguntas.find(p => p.id === "g5_barrio");
   const pVereda = general.preguntas.find(p => p.id === "g5_vereda");
@@ -144,24 +158,46 @@ function poblarFiltroUbicacion() {
     `<optgroup label="Veredas (zona rural)">` +
       veredas.map(v => `<option value="vereda:${v}">${v}</option>`).join("") +
     `</optgroup>`;
+
+  if (valorPrevio && [...sel.options].some(o => o.value === valorPrevio)) {
+    sel.value = valorPrevio;
+  }
 }
 
-function registrosFiltradosPorUbicacion() {
+// Filtra únicamente por año (columna "anio"). Se deja aparte de la ubicación
+// porque la distribución geográfica debe seguir viéndose completa por año,
+// sin recortarla también por sector.
+function registrosFiltradosPorAnio(base) {
+  const fuente = base || TODOS_LOS_REGISTROS;
+  const anio = document.getElementById("filterYear").value;
+  if (!anio || anio === "all") return fuente;
+  return fuente.filter(r => String(r.anio) === String(anio));
+}
+
+function registrosFiltradosPorUbicacion(base) {
+  const fuente = base || TODOS_LOS_REGISTROS;
   const loc = document.getElementById("filterLoc").value;
-  if (!loc || loc === "all") return TODOS_LOS_REGISTROS;
+  if (!loc || loc === "all") return fuente;
   const [tipo, valor] = loc.split(":");
   const campo = tipo === "barrio" ? "g5_barrio" : "g5_vereda";
-  return TODOS_LOS_REGISTROS.filter(r => r.respuestas[campo] === valor);
+  return fuente.filter(r => r.respuestas[campo] === valor);
+}
+
+// Combina año + ubicación. Es la fuente que deben usar los KPIs, los gráficos
+// por dimensión, la tabla de registros individuales y las exportaciones.
+function registrosSegunFiltros() {
+  return registrosFiltradosPorUbicacion(registrosFiltradosPorAnio(TODOS_LOS_REGISTROS));
 }
 
 /* ---------------- KPIs ---------------- */
 function renderKpis() {
-  const total = TODOS_LOS_REGISTROS.length;
+  const fuente = registrosSegunFiltros();
+  const total = fuente.length;
   const hoy = new Date().toDateString();
-  const hoyCount = TODOS_LOS_REGISTROS.filter(r => new Date(r.created_at).toDateString() === hoy).length;
+  const hoyCount = fuente.filter(r => new Date(r.created_at).toDateString() === hoy).length;
 
   let mujeres=0, urbano=0, rural=0;
-  TODOS_LOS_REGISTROS.forEach(r => {
+  fuente.forEach(r => {
     const g1 = r.respuestas.g1, g5 = r.respuestas.g5;
     if (g1 === "Femenino") mujeres++;
     if (g5 && g5.includes("urbana")) urbano++;
@@ -182,7 +218,7 @@ function renderKpis() {
 
 /* ---------------- AGREGACIÓN POR PREGUNTA ---------------- */
 function contarRespuestas(qid, registros) {
-  const fuente = registros || registrosFiltradosPorUbicacion();
+  const fuente = registros || registrosSegunFiltros();
   const conteo = {};
   fuente.forEach(r => {
     let val = r.respuestas[qid];
@@ -239,20 +275,25 @@ function dibujarGrafico(container, titulo, conteo) {
    Muestra de inmediato, sin depender del filtro de dimensión, de qué barrios
    y veredas provienen las respuestas — la condición inicial que identifica
    específicamente de qué parte del municipio responde cada persona.
+   Sí respeta el filtro de año (para poder comparar 2026 vs 2027 en adelante),
+   pero no el de sector, ya que su función es mostrar todos los sectores.
    -------------------------------------------------------------------- */
 function renderDistribucionGeografica() {
   const geoBlock = document.getElementById("geoBlock");
   geoBlock.innerHTML = "";
   if (!TODOS_LOS_REGISTROS.length) return;
 
+  const registrosDelAnio = registrosFiltradosPorAnio(TODOS_LOS_REGISTROS);
+  if (!registrosDelAnio.length) return;
+
   geoBlock.innerHTML = `<h2>📍 Distribución geográfica de las respuestas</h2>`;
   const grid = document.createElement("div");
   grid.className = "chart-grid";
   geoBlock.appendChild(grid);
 
-  dibujarGrafico(grid, "Barrio (zona urbana)", contarRespuestas("g5_barrio", TODOS_LOS_REGISTROS));
-  dibujarGrafico(grid, "Vereda (zona rural)", contarRespuestas("g5_vereda", TODOS_LOS_REGISTROS));
-  dibujarGrafico(grid, "Zona urbana o rural", contarRespuestas("g5", TODOS_LOS_REGISTROS));
+  dibujarGrafico(grid, "Barrio (zona urbana)", contarRespuestas("g5_barrio", registrosDelAnio));
+  dibujarGrafico(grid, "Vereda (zona rural)", contarRespuestas("g5_vereda", registrosDelAnio));
+  dibujarGrafico(grid, "Zona urbana o rural", contarRespuestas("g5", registrosDelAnio));
 
   if (!grid.children.length) geoBlock.innerHTML = "";
 }
@@ -275,9 +316,9 @@ function renderTodo() {
     return;
   }
 
-  const registrosFiltrados = registrosFiltradosPorUbicacion();
+  const registrosFiltrados = registrosSegunFiltros();
   if (!registrosFiltrados.length) {
-    content.innerHTML = `<div class="empty-state">No hay respuestas registradas para el sector seleccionado.</div>`;
+    content.innerHTML = `<div class="empty-state">No hay respuestas registradas para el año y/o el sector seleccionado.</div>`;
     return;
   }
 
@@ -316,19 +357,31 @@ function renderTablaRegistros() {
     return;
   }
 
-  TODOS_LOS_REGISTROS.forEach(r => {
+  const registros = registrosSegunFiltros();
+  if (!registros.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--texto-suave);padding:24px;">
+      No hay respuestas registradas para el año y/o el sector seleccionado.</td></tr>`;
+    pager.textContent = `0 de ${TODOS_LOS_REGISTROS.length} registro(s) (según filtros aplicados).`;
+    return;
+  }
+
+  registros.forEach(r => {
     const fecha = new Date(r.created_at).toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" });
     const zona = r.respuestas.g5 || "—";
     const sector = r.respuestas.g5_barrio || r.respuestas.g5_vereda || "—";
-     const comentario = r.respuestas.comentario_adicional || "—";
+    const comentario = (r.respuestas.comentario_adicional || "").trim();
+    const tieneComentario = comentario.length > 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${fecha}</td>
       <td>${r.respuestas.g1 || "—"}</td>
       <td>${zona}</td>
       <td>${sector}</td>
-      <td style="max-width:350px; white-space:normal; line-height:1.4;">
-       ${comentario}
+      <td>
+        <button class="mini-btn ver-comentario ${tieneComentario ? "tiene-comentario" : ""}"
+            data-action="comentario" data-id="${r.id}" ${tieneComentario ? "" : "disabled"}>
+              👁 ${tieneComentario ? "Ver comentario" : "Sin comentario"}
+        </button>
       </td>
       <td class="row-actions">
         <button class="mini-btn" data-action="edit" data-id="${r.id}">✎ Editar</button>
@@ -338,7 +391,9 @@ function renderTablaRegistros() {
     tbody.appendChild(tr);
   });
 
-  pager.textContent = `${TODOS_LOS_REGISTROS.length} registro(s) en total.`;
+  pager.textContent = registros.length === TODOS_LOS_REGISTROS.length
+    ? `${TODOS_LOS_REGISTROS.length} registro(s) en total.`
+    : `${registros.length} de ${TODOS_LOS_REGISTROS.length} registro(s) (según filtros aplicados).`;
 
   tbody.querySelectorAll('[data-action="edit"]').forEach(btn => {
     btn.addEventListener("click", () => abrirModalEdicion(btn.dataset.id));
@@ -346,12 +401,262 @@ function renderTablaRegistros() {
   tbody.querySelectorAll('[data-action="delete"]').forEach(btn => {
     btn.addEventListener("click", () => eliminarRegistro(btn.dataset.id));
   });
+  tbody.querySelectorAll('[data-action="comentario"]').forEach(btn => {
+    btn.addEventListener("click", () => abrirModalComentario(btn.dataset.id));
+  });
 }
+
+/* ---------------- MODAL: VER COMENTARIO ---------------- */
+function abrirModalComentario(id) {
+  const registro = TODOS_LOS_REGISTROS.find(r => String(r.id) === String(id));
+  if (!registro) return;
+  const comentario = (registro.respuestas.comentario_adicional || "").trim();
+  if (!comentario) return;
+
+  const fecha = new Date(registro.created_at).toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" });
+  const zona = registro.respuestas.g5 || "—";
+  const sector = registro.respuestas.g5_barrio || registro.respuestas.g5_vereda || "—";
+
+  const chips = [
+    { label: "Fecha", valor: fecha },
+    { label: "Género", valor: registro.respuestas.g1 || "—" },
+    { label: "Edad", valor: registro.respuestas.g2 || "—" },
+    { label: "Zona", valor: zona },
+    { label: "Barrio / Vereda", valor: sector },
+  ];
+  document.getElementById("chipsComentario").innerHTML = chips.map(c =>
+    `<div class="chip"><span class="chip-label">${c.label}</span>${c.valor}</div>`
+  ).join("");
+
+  document.getElementById("contenidoComentario").textContent = comentario;
+  document.getElementById("modalComentario").classList.add("show");
+}
+
+function cerrarModalComentario() {
+  document.getElementById("modalComentario").classList.remove("show");
+}
+document.getElementById("cerrarComentario").addEventListener("click", cerrarModalComentario);
+document.getElementById("modalComentario").addEventListener("click", (e) => {
+  if (e.target.id === "modalComentario") cerrarModalComentario();
+});
+
+/* ---------------- EDICIÓN POR CAMPOS ---------------- */
+let CAMPOS_ORDEN = [];
+let CAMPO_ACTUAL = -1;
+let MODO_EDICION = "form";
+
+const ETIQUETAS_EXTRA = {
+  comentario_adicional: "Comentario adicional",
+};
+
+function escapeHtml(str) {
+  return String(str == null ? "" : str).replace(/[&<>"']/g, c => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+  ));
+}
+
+function crearBloqueCampo(qid, label, pregunta, valorActual) {
+  const div = document.createElement("div");
+  div.className = "campo-block";
+  div.dataset.qid = qid;
+
+  const tieneOpciones = pregunta && Array.isArray(pregunta.options) && pregunta.options.length;
+  let tipo;
+  if (tieneOpciones) {
+    tipo = Array.isArray(valorActual) ? "checkbox" : "select";
+  } else if (qid === "comentario_adicional" || (typeof valorActual === "string" && valorActual.length > 70)) {
+    tipo = "textarea";
+  } else {
+    tipo = "text";
+  }
+  div.dataset.tipo = tipo;
+  if (typeof valorActual === "number") div.dataset.esNumero = "1";
+
+  let controlHtml = "";
+
+  if (tipo === "checkbox") {
+    const seleccionados = Array.isArray(valorActual) ? valorActual : [];
+    const otroOpcion = pregunta.options.find(o => /^otr[oa]$/i.test(o));
+    let otroTexto = "";
+    controlHtml += `<div class="campo-check-grupo">`;
+    pregunta.options.forEach(opt => {
+      const esOtro = otroOpcion && opt === otroOpcion;
+      let marcado = seleccionados.includes(opt);
+      if (esOtro && !marcado) {
+        const match = seleccionados.find(v => typeof v === "string" && /^otr[oa]\s*:/i.test(v));
+        if (match) { marcado = true; otroTexto = match.replace(/^otr[oa]\s*:\s*/i, ""); }
+      }
+      controlHtml += `<label class="campo-check-item">
+        <input type="checkbox" value="${escapeHtml(opt)}" ${esOtro ? 'data-otro="1"' : ""} ${marcado ? "checked" : ""}>
+        ${escapeHtml(opt)}
+      </label>`;
+    });
+    controlHtml += `</div>`;
+    if (otroOpcion) {
+      controlHtml += `<input type="text" class="campo-otro-input" placeholder="Especifique…" value="${escapeHtml(otroTexto)}">`;
+    }
+  } else if (tipo === "select") {
+    const otroOpcion = pregunta.options.find(o => /^otr[oa]$/i.test(o));
+    let seleccionEsOtro = false, otroTexto = "";
+    if (valorActual != null && valorActual !== "" && !pregunta.options.includes(valorActual)) {
+      seleccionEsOtro = true;
+      const m = String(valorActual).match(/^otr[oa]\s*:\s*(.*)$/i);
+      otroTexto = m ? m[1] : String(valorActual);
+    }
+    controlHtml += `<select>
+      <option value="">— Sin respuesta —</option>
+      ${pregunta.options.map(opt => {
+        const esSeleccion = opt === valorActual || (seleccionEsOtro && otroOpcion && opt === otroOpcion);
+        return `<option value="${escapeHtml(opt)}" ${esSeleccion ? "selected" : ""}>${escapeHtml(opt)}</option>`;
+      }).join("")}
+    </select>`;
+    if (otroOpcion) {
+      controlHtml += `<input type="text" class="campo-otro-input" placeholder="Especifique…"
+        value="${escapeHtml(otroTexto)}" style="display:${seleccionEsOtro ? "block" : "none"};margin-top:8px;">`;
+    }
+  } else if (tipo === "textarea") {
+    controlHtml = `<textarea>${escapeHtml(valorActual)}</textarea>`;
+  } else {
+    controlHtml = `<input type="text" value="${escapeHtml(valorActual)}">`;
+  }
+
+  div.innerHTML = `<label class="campo-label">${escapeHtml(label)}</label>${controlHtml}`;
+
+  if (tipo === "select") {
+    const select = div.querySelector("select");
+    const otroInput = div.querySelector(".campo-otro-input");
+    if (otroInput) {
+      select.addEventListener("change", () => {
+        otroInput.style.display = /^otr[oa]$/i.test(select.value) ? "block" : "none";
+      });
+    }
+  }
+
+  return div;
+}
+
+function construirFormularioEdicion(registro) {
+  const nav = document.getElementById("editNav");
+  const fields = document.getElementById("editFields");
+  nav.innerHTML = "";
+  fields.innerHTML = "";
+  CAMPOS_ORDEN = [];
+  CAMPO_ACTUAL = -1;
+
+  const idsConocidos = new Set();
+
+  const agregarSeccionNav = (anchorId, titulo) => {
+    const link = document.createElement("a");
+    link.textContent = titulo;
+    link.addEventListener("click", () => {
+      const el = document.getElementById(anchorId);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    nav.appendChild(link);
+  };
+
+  (ENCUESTA_SECCIONES || []).forEach(seccion => {
+    const anchorId = `edit-sec-${seccion.id}`;
+    agregarSeccionNav(anchorId, seccion.titulo);
+
+    const tituloEl = document.createElement("div");
+    tituloEl.className = "edit-seccion-titulo";
+    tituloEl.id = anchorId;
+    tituloEl.textContent = seccion.titulo;
+    fields.appendChild(tituloEl);
+
+    seccion.preguntas.forEach(p => {
+      idsConocidos.add(p.id);
+      const bloque = crearBloqueCampo(p.id, p.text || p.id, p, registro.respuestas[p.id]);
+      fields.appendChild(bloque);
+      CAMPOS_ORDEN.push(bloque);
+    });
+  });
+
+  const extras = Object.keys(registro.respuestas || {}).filter(k => !idsConocidos.has(k));
+  if (extras.length) {
+    const anchorId = "edit-sec-otros";
+    agregarSeccionNav(anchorId, "Otros datos");
+
+    const tituloEl = document.createElement("div");
+    tituloEl.className = "edit-seccion-titulo";
+    tituloEl.id = anchorId;
+    tituloEl.textContent = "Otros datos";
+    fields.appendChild(tituloEl);
+
+    extras.forEach(qid => {
+      const bloque = crearBloqueCampo(qid, ETIQUETAS_EXTRA[qid] || qid, null, registro.respuestas[qid]);
+      fields.appendChild(bloque);
+      CAMPOS_ORDEN.push(bloque);
+    });
+  }
+}
+
+function leerFormularioEdicion(registroOriginal) {
+  const nuevo = { ...(registroOriginal.respuestas || {}) };
+  document.querySelectorAll("#editFields .campo-block").forEach(bloque => {
+    const qid = bloque.dataset.qid;
+    const tipo = bloque.dataset.tipo;
+
+    if (tipo === "checkbox") {
+      const otroInput = bloque.querySelector(".campo-otro-input");
+      const valores = [];
+      bloque.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+        if (!chk.checked) return;
+        if (chk.dataset.otro === "1") {
+          const txt = otroInput ? otroInput.value.trim() : "";
+          valores.push(txt ? `${chk.value}: ${txt}` : chk.value);
+        } else {
+          valores.push(chk.value);
+        }
+      });
+      nuevo[qid] = valores;
+    } else if (tipo === "select") {
+      const select = bloque.querySelector("select");
+      const otroInput = bloque.querySelector(".campo-otro-input");
+      let val = select.value;
+      if (val === "") {
+        delete nuevo[qid];
+        return;
+      }
+      if (/^otr[oa]$/i.test(val) && otroInput) {
+        const txt = otroInput.value.trim();
+        val = txt ? `${val}: ${txt}` : val;
+      }
+      nuevo[qid] = val;
+    } else if (tipo === "textarea") {
+      nuevo[qid] = bloque.querySelector("textarea").value;
+    } else {
+      const input = bloque.querySelector('input[type="text"]');
+      const val = input.value;
+      nuevo[qid] = (bloque.dataset.esNumero === "1" && val.trim() !== "" && !isNaN(val))
+        ? Number(val) : val;
+    }
+  });
+  return nuevo;
+}
+
+function irACampo(delta) {
+  if (!CAMPOS_ORDEN.length) return;
+  CAMPO_ACTUAL = Math.min(Math.max(CAMPO_ACTUAL + delta, 0), CAMPOS_ORDEN.length - 1);
+  document.querySelectorAll(".campo-block.resaltado").forEach(b => b.classList.remove("resaltado"));
+  const el = CAMPOS_ORDEN[CAMPO_ACTUAL];
+  el.classList.add("resaltado");
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  setTimeout(() => el.classList.remove("resaltado"), 1600);
+}
+document.getElementById("editNavUp").addEventListener("click", () => irACampo(-1));
+document.getElementById("editNavDown").addEventListener("click", () => irACampo(1));
 
 function abrirModalEdicion(id) {
   const registro = TODOS_LOS_REGISTROS.find(r => String(r.id) === String(id));
   if (!registro) return;
   EDITANDO_ID = id;
+  MODO_EDICION = "form";
+  document.getElementById("editToggleModo").textContent = "🧾 Ver como JSON";
+  document.getElementById("editBodyForm").style.display = "flex";
+  document.getElementById("editBodyJson").style.display = "none";
+  construirFormularioEdicion(registro);
   document.getElementById("editTextarea").value = JSON.stringify(registro.respuestas, null, 2);
   document.getElementById("editError").classList.remove("show");
   document.getElementById("editModal").classList.add("show");
@@ -360,22 +665,68 @@ function abrirModalEdicion(id) {
 function cerrarModalEdicion() {
   document.getElementById("editModal").classList.remove("show");
   EDITANDO_ID = null;
+  CAMPOS_ORDEN = [];
+  CAMPO_ACTUAL = -1;
 }
 document.getElementById("editCancelBtn").addEventListener("click", cerrarModalEdicion);
 document.getElementById("editModal").addEventListener("click", (e) => {
   if (e.target.id === "editModal") cerrarModalEdicion();
 });
 
+document.getElementById("editToggleModo").addEventListener("click", () => {
+  const btn = document.getElementById("editToggleModo");
+  const registro = TODOS_LOS_REGISTROS.find(r => String(r.id) === String(EDITANDO_ID));
+  if (!registro) return;
+
+  if (MODO_EDICION === "form") {
+    // Pasa a modo JSON, volcando lo que el usuario ya haya editado en el formulario.
+    let actual;
+    try {
+      actual = leerFormularioEdicion(registro);
+    } catch (e) {
+      actual = registro.respuestas;
+    }
+    document.getElementById("editTextarea").value = JSON.stringify(actual, null, 2);
+    document.getElementById("editBodyForm").style.display = "none";
+    document.getElementById("editBodyJson").style.display = "block";
+    btn.textContent = "🧩 Ver por campos";
+    MODO_EDICION = "json";
+  } else {
+    // Vuelve a modo formulario, reconstruyéndolo desde el JSON (si es válido).
+    const textarea = document.getElementById("editTextarea");
+    let datos;
+    try {
+      datos = JSON.parse(textarea.value);
+    } catch (e) {
+      document.getElementById("editError").textContent = "El JSON no es válido, corríjalo antes de volver a la vista por campos.";
+      document.getElementById("editError").classList.add("show");
+      return;
+    }
+    document.getElementById("editError").classList.remove("show");
+    construirFormularioEdicion({ respuestas: datos });
+    document.getElementById("editBodyForm").style.display = "flex";
+    document.getElementById("editBodyJson").style.display = "none";
+    btn.textContent = "🧾 Ver como JSON";
+    MODO_EDICION = "form";
+  }
+});
+
 document.getElementById("editSaveBtn").addEventListener("click", async () => {
-  const textarea = document.getElementById("editTextarea");
   const errBox = document.getElementById("editError");
+  const registro = TODOS_LOS_REGISTROS.find(r => String(r.id) === String(EDITANDO_ID));
+  if (!registro) return;
   let nuevoJson;
-  try {
-    nuevoJson = JSON.parse(textarea.value);
-  } catch (e) {
-    errBox.textContent = "El contenido no es un JSON válido: " + e.message;
-    errBox.classList.add("show");
-    return;
+
+  if (MODO_EDICION === "json") {
+    try {
+      nuevoJson = JSON.parse(document.getElementById("editTextarea").value);
+    } catch (e) {
+      errBox.textContent = "El contenido no es un JSON válido: " + e.message;
+      errBox.classList.add("show");
+      return;
+    }
+  } else {
+    nuevoJson = leerFormularioEdicion(registro);
   }
   errBox.classList.remove("show");
 
@@ -410,14 +761,18 @@ async function eliminarRegistro(id) {
   await cargarDatos();
 }
 
-/* ---------------- EXPORTAR CSV / XLSX ---------------- */
+/* ---------------- EXPORTAR CSV / XLSX ----------------
+   Exportan los registros según los filtros de año y sector aplicados en ese
+   momento (si no hay ninguno activo, exportan todo, como antes). */
 function filasParaExportar() {
+  const registros = registrosSegunFiltros();
   const todasLasPreguntas = ENCUESTA_SECCIONES.flatMap(s => s.preguntas.map(p => p.id));
-  const headers = ["id", "fecha", ...todasLasPreguntas, "comentario_adicional"];
-  const filas = TODOS_LOS_REGISTROS.map(r => {
+  const headers = ["id", "fecha", "anio", ...todasLasPreguntas, "comentario_adicional"];
+  const filas = registros.map(r => {
     return [
       r.id,
       new Date(r.created_at).toLocaleString("es-CO"),
+      r.anio != null ? r.anio : "",
       ...todasLasPreguntas.map(qid => {
         const v = r.respuestas[qid];
         if (v === undefined || v === null) return "";
@@ -430,7 +785,7 @@ function filasParaExportar() {
 }
 
 function exportarCSV() {
-  if (!TODOS_LOS_REGISTROS.length) return;
+  if (!registrosSegunFiltros().length) return;
   const { headers, filas } = filasParaExportar();
   const csv = [headers.join(","),
     ...filas.map(fila => fila.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
@@ -445,7 +800,8 @@ function exportarCSV() {
 }
 
 function exportarXLSX() {
-  if (!TODOS_LOS_REGISTROS.length) return;
+  const registros = registrosSegunFiltros();
+  if (!registros.length) return;
   if (typeof XLSX === "undefined") {
     alert("No se pudo cargar la librería de Excel. Verifique su conexión a internet e intente de nuevo.");
     return;
@@ -460,12 +816,13 @@ function exportarXLSX() {
   // Segunda hoja con un resumen rápido de género y sector, útil para
   // quien solo quiera ver la información de forma sencilla.
   const resumen = [["Indicador", "Valor"]];
-  resumen.push(["Total de respuestas", TODOS_LOS_REGISTROS.length]);
-  Object.entries(contarRespuestas("g1", TODOS_LOS_REGISTROS)).forEach(([k,v]) => resumen.push([`Género · ${k}`, v]));
-  Object.entries(contarRespuestas("g5", TODOS_LOS_REGISTROS)).forEach(([k,v]) => resumen.push([`Zona · ${k}`, v]));
+  resumen.push(["Total de respuestas exportadas", registros.length]);
+  Object.entries(contarRespuestas("g1", registros)).forEach(([k,v]) => resumen.push([`Género · ${k}`, v]));
+  Object.entries(contarRespuestas("g5", registros)).forEach(([k,v]) => resumen.push([`Zona · ${k}`, v]));
   const hojaResumen = XLSX.utils.aoa_to_sheet(resumen);
   hojaResumen["!cols"] = [{ wch: 30 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(libro, hojaResumen, "Resumen");
 
   XLSX.writeFile(libro, `encuesta_calidad_vida_2026_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
+

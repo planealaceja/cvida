@@ -100,6 +100,10 @@ table.registros .row-actions{display:flex;gap:6px;}
 .mini-btn.danger{color:#C0392B;border-color:#F1CFC9;}
 .mini-btn.danger:hover{background:#FBEAE7;}
 .mini-btn:hover{border-color:var(--azul-claro);}
+.mini-btn:disabled{opacity:.4;cursor:not-allowed;}
+.mini-btn:disabled:hover{border-color:var(--borde);}
+.mini-btn.ver-comentario.tiene-comentario{color:var(--azul-institucional);border-color:#C7D8E8;}
+.mini-btn.ver-comentario.tiene-comentario:hover{background:var(--verde-claro);}
 .pager{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-size:12.5px;color:var(--texto-suave);}
 
 /* MODAL */
@@ -124,6 +128,72 @@ table.registros .row-actions{display:flex;gap:6px;}
 }
 .modal-actions .cancel{background:#F1F4F7;color:var(--texto);}
 .modal-actions .save{background:var(--azul-institucional);color:#fff;}
+
+/* ---- MODAL DE COMENTARIO ---- */
+.comentario-box{max-width:620px;}
+.modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.modal-header button.cerrar-x{
+  background:none;border:none;font-size:22px;line-height:1;color:var(--texto-suave);
+  cursor:pointer;padding:2px 6px;border-radius:6px;
+}
+.modal-header button.cerrar-x:hover{background:var(--fondo);color:var(--texto);}
+.chips-comentario{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 16px;}
+.chip{
+  background:var(--verde-claro);color:var(--azul-institucional);border-radius:999px;
+  padding:6px 12px;font-size:12px;font-weight:600;display:flex;flex-direction:column;line-height:1.25;
+}
+.chip .chip-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;opacity:.65;font-weight:700;}
+#contenidoComentario{
+  margin-top:4px;line-height:1.7;white-space:pre-wrap;background:#F8FAFB;border:1px solid var(--borde);
+  border-left:4px solid var(--azul-claro);border-radius:10px;padding:16px 18px;font-size:14px;color:var(--texto);
+}
+
+/* ---- MODAL DE EDICIÓN POR CAMPOS ---- */
+.edit-box{max-width:820px;}
+.edit-toggle{
+  border:1.5px solid var(--borde);background:#fff;border-radius:999px;padding:6px 13px;font-size:12px;
+  font-weight:600;color:var(--texto-suave);cursor:pointer;white-space:nowrap;
+}
+.edit-toggle:hover{border-color:var(--azul-claro);color:var(--azul-institucional);}
+.edit-body{display:flex;gap:16px;margin-top:10px;position:relative;}
+.edit-nav{
+  flex:0 0 150px;border-right:1px solid var(--borde);padding-right:12px;
+  display:flex;flex-direction:column;gap:2px;max-height:56vh;overflow-y:auto;
+}
+.edit-nav a{
+  font-size:12px;color:var(--texto-suave);text-decoration:none;padding:7px 9px;border-radius:7px;
+  font-weight:600;display:block;cursor:pointer;
+}
+.edit-nav a:hover{background:var(--fondo);color:var(--texto);}
+.edit-nav a.activo{background:var(--verde-claro);color:var(--azul-institucional);}
+.edit-fields{flex:1;max-height:56vh;overflow-y:auto;padding-right:6px;scroll-behavior:smooth;}
+.edit-seccion-titulo{
+  font-family:'Fraunces',serif;font-size:14px;color:var(--azul-institucional);font-weight:600;
+  margin:18px 0 10px;padding-bottom:5px;border-bottom:1.5px solid var(--borde);
+}
+.edit-seccion-titulo:first-child{margin-top:0;}
+.campo-block{margin-bottom:14px;padding:10px 12px;border-radius:10px;transition:background .5s;}
+.campo-block.resaltado{background:#FFF6DE;}
+.campo-block label.campo-label{display:block;font-size:12.5px;font-weight:600;color:var(--texto);margin-bottom:6px;}
+.campo-block input[type="text"], .campo-block input[type="number"], .campo-block select, .campo-block textarea{
+  width:100%;padding:8px 10px;border:1.5px solid var(--borde);border-radius:8px;font-size:13px;
+  font-family:'Inter',sans-serif;background:#fff;
+}
+.campo-block textarea{min-height:70px;resize:vertical;}
+.campo-check-grupo{display:flex;flex-wrap:wrap;gap:8px;}
+.campo-check-item{
+  display:flex;align-items:center;gap:6px;border:1.5px solid var(--borde);border-radius:999px;
+  padding:6px 12px;font-size:12.5px;cursor:pointer;background:#fff;
+}
+.campo-check-item input{margin:0;}
+.campo-check-item:has(input:checked){background:var(--verde-claro);border-color:var(--verde-flores);color:var(--azul-institucional);}
+.campo-otro-input{margin-top:8px;}
+.edit-nav-arrows{position:absolute;right:-2px;bottom:-2px;display:flex;flex-direction:column;gap:6px;}
+.edit-nav-arrows button{
+  width:30px;height:30px;border-radius:50%;border:1.5px solid var(--borde);background:#fff;
+  cursor:pointer;font-size:13px;box-shadow:var(--sombra);
+}
+.edit-nav-arrows button:hover{border-color:var(--azul-claro);}
 </style>
 </head>
 <body>
@@ -147,8 +217,8 @@ table.registros .row-actions{display:flex;gap:6px;}
       <h1>Resultados · Encuesta de Calidad de Vida 2026</h1>
     </div>
     <div class="right">
-      <button id="exportCsvBtn">⬇ CSV</button>
-      <button id="exportXlsxBtn">⬇ Excel (.xlsx)</button>
+      <button id="exportCsvBtn" title="Exporta según el año y el sector seleccionados arriba">⬇ CSV</button>
+      <button id="exportXlsxBtn" title="Exporta según el año y el sector seleccionados arriba">⬇ Excel (.xlsx)</button>
       <button id="logoutBtn">Salir</button>
     </div>
   </header>
@@ -165,7 +235,7 @@ table.registros .row-actions{display:flex;gap:6px;}
       <div class="geo-block" id="geoBlock"></div>
 
       <div class="toolbar">
-        <select id="filterYear"></select>
+        <select id="filterYear" title="Filtra todo el panel por el año en que se diligenció la encuesta"></select>
         <select id="filterDim"></select>
         <select id="filterLoc"></select>
         <button id="refreshBtn" class="primary">↻ Actualizar datos</button>
@@ -199,16 +269,45 @@ table.registros .row-actions{display:flex;gap:6px;}
 </div>
 
 <div class="modal-overlay" id="editModal">
-  <div class="modal-box">
-    <h3>Editar respuesta</h3>
-    <div class="sub">Edite el JSON de las respuestas de este registro. Guarde con cuidado: el
-      formato debe seguir siendo un JSON válido.</div>
-    <textarea id="editTextarea" spellcheck="false"></textarea>
+  <div class="modal-box edit-box">
+    <div class="modal-header">
+      <div>
+        <h3>Editar respuesta</h3>
+        <div class="sub">Ubíquese en el campo que quiere corregir y edítelo directamente. Los cambios
+          se guardan en la base de datos al confirmar.</div>
+      </div>
+      <button class="edit-toggle" id="editToggleModo" type="button">🧾 Ver como JSON</button>
+    </div>
+
+    <div class="edit-body" id="editBodyForm">
+      <nav class="edit-nav" id="editNav"></nav>
+      <div class="edit-fields" id="editFields"></div>
+      <div class="edit-nav-arrows">
+        <button type="button" id="editNavUp" title="Campo anterior">▲</button>
+        <button type="button" id="editNavDown" title="Campo siguiente">▼</button>
+      </div>
+    </div>
+
+    <div id="editBodyJson" style="display:none;">
+      <textarea id="editTextarea" spellcheck="false"></textarea>
+    </div>
+
     <div class="modal-error" id="editError">El contenido no es un JSON válido. Revise la sintaxis.</div>
     <div class="modal-actions">
       <button class="cancel" id="editCancelBtn">Cancelar</button>
       <button class="save" id="editSaveBtn">Guardar cambios</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalComentario">
+  <div class="modal-box comentario-box">
+    <div class="modal-header">
+      <h3>💬 Comentario ciudadano</h3>
+      <button class="cerrar-x" id="cerrarComentario" type="button">&times;</button>
+    </div>
+    <div class="chips-comentario" id="chipsComentario"></div>
+    <div id="contenidoComentario"></div>
   </div>
 </div>
 
