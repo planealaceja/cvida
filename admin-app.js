@@ -1,5 +1,5 @@
 /* =========================================================================
-   PANEL DE RESULTADOS - ENCUESTA DE CALIDAD DE VIDA LA CEJA DEL TAMBO 2026
+   PANEL ADMINISTRATIVO DE RESULTADOS  - ENCUESTA DE CALIDAD DE VIDA LA CEJA DEL TAMBO 2026
    ========================================================================= */
 
 const ADMIN_CONFIG = {
