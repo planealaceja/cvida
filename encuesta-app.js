@@ -24,6 +24,9 @@ const state = {
   respuestas: {},         // { qid: valor | [valores] }
   otros: {},              // { qid: texto libre de "Otro" }
   comentario: "",          // comentario final opcional
+  nombre_contacto: "",     // NUEVO
+  email_contacto: "",      // NUEVO
+  telefono_contacto: "",   // NUEVO
   consentido: false,
   enviando: false,
 };
@@ -122,6 +125,7 @@ function renderIntro() {
               contacto del Observatorio Municipal.</li>
           <li>Al continuar y dar inicio a la encuesta, usted <strong>autoriza libre y voluntariamente</strong>
               el tratamiento de los datos suministrados conforme a lo aquí descrito.</li>
+          <li>Si tienes alguna inquietud adicional o sugerencia, puedes escribirnos al correo electrónico: <strong>pestrategica@laceja-antioquia.gov.co </strong></li>
         </ul>
       </div>
 
@@ -186,7 +190,7 @@ function renderPregunta(p) {
         <option value="" disabled ${state.respuestas[p.id] ? "" : "selected"}>Seleccione una opción…</option>
         ${p.options.map(opt => `<option value="${opt}" ${state.respuestas[p.id]===opt?"selected":""}>${opt}</option>`).join("")}
       </select>
-      <input type="text" class="other-input" placeholder="Por favor especifique...">
+      <input type="text" class="other-input" placeholder="Por favor especifique... ">
       <div class="alert-missing">Esta pregunta es obligatoria.</div>
     `;
     const select = card.querySelector(".q-select");
@@ -252,13 +256,25 @@ function onOptionClick(p, opt, card) {
   } else {
     let arr = Array.isArray(state.respuestas[p.id]) ? [...state.respuestas[p.id]] : [];
     const exclusivas = p.exclusive || [];
+
+    // Lógica para desmarcar si ya estaba seleccionada
     if (arr.includes(opt)) {
       arr = arr.filter(v => v !== opt);
-    } else {
+    }
+    // Lógica para marcar una nueva opción
+    else {
+      // 1. Verificar si hay un límite configurado (maxLimit)
+      if (p.maxLimit && arr.length >= p.maxLimit && !exclusivas.includes(opt)) {
+        // Si ya alcanzó el límite, no hacemos nada (bloqueamos el clic)
+        // Opcional: Podrías alertar al usuario aquí si quisieras
+        return;
+      }
+
+      // 2. Procesar opciones exclusivas (ej. "Ninguno")
       if (exclusivas.includes(opt)) {
-        arr = [opt];
+        arr = [opt]; // Borra todo y deja solo la exclusiva
       } else {
-        arr = arr.filter(v => !exclusivas.includes(v));
+        arr = arr.filter(v => !exclusivas.includes(v)); // Quita las exclusivas previas si marca otra cosa
         arr.push(opt);
       }
     }
@@ -445,6 +461,7 @@ function renderComentario() {
     </div>`;
   wrap.appendChild(header);
 
+  // Tarjeta original de comentario
   const card = document.createElement("div");
   card.className = "q-card";
   card.innerHTML = `
@@ -458,6 +475,48 @@ function renderComentario() {
   textarea.value = state.comentario || "";
   textarea.addEventListener("input", () => { state.comentario = textarea.value; });
   wrap.appendChild(card);
+
+  // --- NUEVA TARJETA DE DATOS DE CONTACTO ---
+  const contactCard = document.createElement("div");
+  contactCard.className = "q-card";
+  contactCard.innerHTML = `
+    <div class="q-text">Datos de contacto (Opcional)</div>
+    <div class="q-help">Si desea que la administración municipal se ponga en contacto con usted respecto a sus respuestas o sugerencias, puede dejarnos sus datos de forma libre y voluntaria. Su confidencialidad está protegida.</div>
+    
+    <div style="margin-top: 14px;">
+      <label style="display:block; font-size:13.5px; font-weight:600; margin-bottom:4px; color:var(--texto);">Nombres y Apellidos</label>
+      <input type="text" id="inpNombre" class="other-input show" style="text-transform: uppercase;" placeholder="EJ: JUAN PÉREZ">
+    </div>
+
+    <div style="margin-top: 14px;">
+      <label style="display:block; font-size:13.5px; font-weight:600; margin-bottom:4px; color:var(--texto);">Correo Electrónico</label>
+      <input type="email" id="inpEmail" class="other-input show" placeholder="ejemplo@correo.com">
+    </div>
+
+    <div style="margin-top: 14px;">
+      <label style="display:block; font-size:13.5px; font-weight:600; margin-bottom:4px; color:var(--texto);">Número de Teléfono / Celular</label>
+      <input type="tel" id="inpTelefono" class="other-input show" placeholder="Ej: 300 123 4567">
+    </div>
+  `;
+
+  // Lógica para guardar los datos ingresados
+  const inpNombre = contactCard.querySelector("#inpNombre");
+  const inpEmail = contactCard.querySelector("#inpEmail");
+  const inpTelefono = contactCard.querySelector("#inpTelefono");
+
+  inpNombre.value = state.nombre_contacto || "";
+  inpEmail.value = state.email_contacto || "";
+  inpTelefono.value = state.telefono_contacto || "";
+
+  inpNombre.addEventListener("input", () => {
+    // Fuerza a mayúsculas visualmente y en los datos que se envían
+    inpNombre.value = inpNombre.value.toUpperCase();
+    state.nombre_contacto = inpNombre.value;
+  });
+  inpEmail.addEventListener("input", () => { state.email_contacto = inpEmail.value; });
+  inpTelefono.addEventListener("input", () => { state.telefono_contacto = inpTelefono.value; });
+
+  wrap.appendChild(contactCard);
 
   return wrap;
 }
@@ -535,6 +594,17 @@ function construirPayload() {
   if (state.comentario && state.comentario.trim()) {
     out.comentario_adicional = state.comentario.trim();
   }
+  // --- NUEVOS DATOS A ENVIAR ---
+  if (state.nombre_contacto && state.nombre_contacto.trim()) {
+    out.nombre_contacto = state.nombre_contacto.trim();
+  }
+  if (state.email_contacto && state.email_contacto.trim()) {
+    out.email_contacto = state.email_contacto.trim();
+  }
+  if (state.telefono_contacto && state.telefono_contacto.trim()) {
+    out.telefono_contacto = state.telefono_contacto.trim();
+  }
+  // -----------------------------
   out._enviado_en = new Date().toISOString();
   return out;
 }

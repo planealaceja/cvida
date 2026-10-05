@@ -145,8 +145,8 @@ function poblarFiltroUbicacion() {
   const sel = document.getElementById("filterLoc");
   const valorPrevio = sel.value;
   const general = ENCUESTA_SECCIONES.find(s => s.id === "general");
-  const pBarrio = general.preguntas.find(p => p.id === "g5_barrio");
-  const pVereda = general.preguntas.find(p => p.id === "g5_vereda");
+  const pBarrio = general.preguntas.find(p => p.id === "g6_barrio");
+  const pVereda = general.preguntas.find(p => p.id === "g6_vereda");
 
   const barrios = pBarrio.options.filter(o => o !== "Otro");
   const veredas = pVereda.options.filter(o => o !== "Otra");
@@ -179,7 +179,7 @@ function registrosFiltradosPorUbicacion(base) {
   const loc = document.getElementById("filterLoc").value;
   if (!loc || loc === "all") return fuente;
   const [tipo, valor] = loc.split(":");
-  const campo = tipo === "barrio" ? "g5_barrio" : "g5_vereda";
+  const campo = tipo === "barrio" ? "g6_barrio" : "g6_vereda";
   return fuente.filter(r => r.respuestas[campo] === valor);
 }
 
@@ -196,18 +196,18 @@ function renderKpis() {
   const hoy = new Date().toDateString();
   const hoyCount = fuente.filter(r => new Date(r.created_at).toDateString() === hoy).length;
 
-  let mujeres=0, urbano=0, rural=0;
+  let Mujer =0, urbano=0, rural=0;
   fuente.forEach(r => {
-    const g1 = r.respuestas.g1, g5 = r.respuestas.g5;
-    if (g1 === "Femenino") mujeres++;
-    if (g5 && g5.includes("urbana")) urbano++;
-    if (g5 && g5.includes("rural")) rural++;
+    const g1 = r.respuestas.g1, g6 = r.respuestas.g6;
+    if (g1 === "Mujer") Mujer++;
+    if (g6 && g6.includes("urbana")) urbano++;
+    if (g6 && g6.includes("rural")) rural++;
   });
 
   const kpis = [
     { num: total, label: "Respuestas totales" },
     { num: hoyCount, label: "Respuestas hoy" },
-    { num: total ? Math.round((mujeres/total)*100)+"%" : "—", label: "Identificadas como mujeres" },
+    { num: total ? Math.round((Mujer /total)*100)+"%" : "—", label: "Identificadas como mujeres" },
     { num: total ? Math.round((urbano/total)*100)+"%" : "—", label: "Zona urbana" },
     { num: total ? Math.round((rural/total)*100)+"%" : "—", label: "Zona rural" },
   ];
@@ -232,30 +232,71 @@ function contarRespuestas(qid, registros) {
   return conteo;
 }
 
+// 1. Función auxiliar para dividir textos muy largos en los Tooltips
+function dividirTextoTooltip(texto, maxLen) {
+  if (texto.length <= maxLen) return [texto];
+  const palabras = texto.split(' ');
+  const lineas = [];
+  let lineaActual = '';
+  palabras.forEach(palabra => {
+    if ((lineaActual + palabra).length > maxLen) {
+      lineas.push(lineaActual.trim());
+      lineaActual = palabra + ' ';
+    } else {
+      lineaActual += palabra + ' ';
+    }
+  });
+  if (lineaActual) lineas.push(lineaActual.trim());
+  return lineas;
+}
+
+// 2. Función principal de dibujo actualizada
 function dibujarGrafico(container, titulo, conteo) {
-  const n = Object.values(conteo).reduce((a,b)=>a+b,0);
+  const n = Object.values(conteo).reduce((a, b) => a + b, 0);
   if (n === 0) return;
+
   const card = document.createElement("div");
   card.className = "chart-card";
-  card.innerHTML = `<h3>${titulo} <span class="n">(n=${n})</span></h3><canvas></canvas>`;
   container.appendChild(card);
 
   const labels = Object.keys(conteo);
   const valores = Object.values(conteo);
+
+  // Acortamos los nombres solo para el dibujo interno de la gráfica para evitar que se deforme
+  const labelsCortos = labels.map(l => l.length > 40 ? l.substring(0, 37) + '...' : l);
+
+  // Construimos el HTML insertando el canvas y una leyenda web personalizada debajo
+  card.innerHTML = `
+    <h3>${titulo} <span class="n">(n=${n})</span></h3>
+    <div style="position: relative; height: 220px;">
+      <canvas></canvas>
+    </div>
+    <div style="margin-top: 18px; font-size: 12.5px; color: var(--texto-suave); display: flex; flex-direction: column; gap: 8px;">
+      ${labels.map((l, i) => {
+    let pct = ((valores[i] / n) * 100).toFixed(1).replace('.0', '');
+    let color = PALETA[i % PALETA.length];
+    return `<div style="display: flex; gap: 8px; align-items: flex-start; line-height: 1.4;">
+                  <span style="display:inline-block; width:12px; height:12px; background:${color}; border-radius:3px; flex-shrink:0; margin-top:3px;"></span>
+                  <span><strong>${pct}%</strong> (${valores[i]}) -${l}</span>
+                </div>`;
+  }).join("")}
+    </div>
+  `;
+
+  // Si no carga la librería Chart.js, eliminamos solo el contenedor del canvas y dejamos la leyenda que sirve como resumen
   if (typeof Chart === "undefined") {
-    card.querySelector("canvas").outerHTML =
-      `<ul style="font-size:12.5px;color:var(--texto-suave);padding-left:18px;margin:0;">` +
-      labels.map((l,i)=>`<li>${l}: ${valores[i]}</li>`).join("") + `</ul>`;
+    card.querySelector("div").remove();
     return;
   }
+
   const ctx = card.querySelector("canvas").getContext("2d");
   const chart = new Chart(ctx, {
     type: labels.length > 6 ? "bar" : "doughnut",
     data: {
-      labels,
+      labels: labelsCortos,
       datasets: [{
         data: valores,
-        backgroundColor: labels.map((_,i)=>PALETA[i % PALETA.length]),
+        backgroundColor: labels.map((_, i) => PALETA[i % PALETA.length]),
         borderRadius: labels.length > 6 ? 6 : 0,
         borderWidth: labels.length > 6 ? 0 : 2,
         borderColor: "#fff",
@@ -263,8 +304,27 @@ function dibujarGrafico(container, titulo, conteo) {
     },
     options: {
       indexAxis: labels.length > 6 ? "y" : "x",
-      plugins: { legend: { display: labels.length <= 6, position:"bottom", labels:{boxWidth:10,font:{size:10.5}} } },
-      scales: labels.length > 6 ? { x:{beginAtZero:true,ticks:{font:{size:10}}}, y:{ticks:{font:{size:10}}} } : {},
+      plugins: {
+        // Ocultamos la leyenda defectuosa nativa para que brille nuestra leyenda HTML
+        legend: { display: false },
+
+        // Configuramos la ventana emergente flotante (Tooltip)
+        tooltip: {
+          callbacks: {
+            title: function (context) {
+              // Recupera el texto completo y lo divide en líneas
+              let textoOriginal = labels[context[0].dataIndex];
+              return dividirTextoTooltip(textoOriginal, 55);
+            },
+            label: function (context) {
+              let valor = context.raw || 0;
+              let porcentaje = ((valor / n) * 100).toFixed(1).replace('.0', '');
+              return ` Cantidad: ${valor} (${porcentaje}%)`;
+            }
+          }
+        }
+      },
+      scales: labels.length > 6 ? { x: { beginAtZero: true, ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } } : {},
       maintainAspectRatio: false,
     }
   });
@@ -291,9 +351,9 @@ function renderDistribucionGeografica() {
   grid.className = "chart-grid";
   geoBlock.appendChild(grid);
 
-  dibujarGrafico(grid, "Barrio (zona urbana)", contarRespuestas("g5_barrio", registrosDelAnio));
-  dibujarGrafico(grid, "Vereda (zona rural)", contarRespuestas("g5_vereda", registrosDelAnio));
-  dibujarGrafico(grid, "Zona urbana o rural", contarRespuestas("g5", registrosDelAnio));
+  dibujarGrafico(grid, "Barrio (zona urbana)", contarRespuestas("g6_barrio", registrosDelAnio));
+  dibujarGrafico(grid, "Vereda (zona rural)", contarRespuestas("g6_vereda", registrosDelAnio));
+  dibujarGrafico(grid, "Zona urbana o rural", contarRespuestas("g6", registrosDelAnio));
 
   if (!grid.children.length) geoBlock.innerHTML = "";
 }
@@ -367,8 +427,8 @@ function renderTablaRegistros() {
 
   registros.forEach(r => {
     const fecha = new Date(r.created_at).toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" });
-    const zona = r.respuestas.g5 || "—";
-    const sector = r.respuestas.g5_barrio || r.respuestas.g5_vereda || "—";
+    const zona = r.respuestas.g6 || "—";
+    const sector = r.respuestas.g6_barrio || r.respuestas.g6_vereda || "—";
     const comentario = (r.respuestas.comentario_adicional || "").trim();
     const tieneComentario = comentario.length > 0;
     const tr = document.createElement("tr");
@@ -414,13 +474,13 @@ function abrirModalComentario(id) {
   if (!comentario) return;
 
   const fecha = new Date(registro.created_at).toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" });
-  const zona = registro.respuestas.g5 || "—";
-  const sector = registro.respuestas.g5_barrio || registro.respuestas.g5_vereda || "—";
+  const zona = registro.respuestas.g6 || "—";
+  const sector = registro.respuestas.g6_barrio || registro.respuestas.g6_vereda || "—";
 
   const chips = [
     { label: "Fecha", valor: fecha },
-    { label: "Género", valor: registro.respuestas.g1 || "—" },
-    { label: "Edad", valor: registro.respuestas.g2 || "—" },
+    { label: "Sexo", valor: registro.respuestas.g1 || "—" },
+    { label: "Edad", valor: registro.respuestas.g3 || "—" },
     { label: "Zona", valor: zona },
     { label: "Barrio / Vereda", valor: sector },
   ];
@@ -447,6 +507,9 @@ let MODO_EDICION = "form";
 
 const ETIQUETAS_EXTRA = {
   comentario_adicional: "Comentario adicional",
+  nombre_contacto: "Nombres del ciudadano",
+  email_contacto: "Correo electrónico",
+  telefono_contacto: "Número de teléfono"
 };
 
 function escapeHtml(str) {
@@ -767,7 +830,10 @@ async function eliminarRegistro(id) {
 function filasParaExportar() {
   const registros = registrosSegunFiltros();
   const todasLasPreguntas = ENCUESTA_SECCIONES.flatMap(s => s.preguntas.map(p => p.id));
-  const headers = ["id", "fecha", "anio", ...todasLasPreguntas, "comentario_adicional"];
+
+  // Se agregan las cabeceras de contacto al final
+  const headers = ["id", "fecha", "anio", ...todasLasPreguntas, "comentario_adicional", "nombre_contacto", "email_contacto", "telefono_contacto"];
+
   const filas = registros.map(r => {
     return [
       r.id,
@@ -778,7 +844,10 @@ function filasParaExportar() {
         if (v === undefined || v === null) return "";
         return Array.isArray(v) ? v.join(" | ") : String(v);
       }),
-      r.respuestas.comentario_adicional || ""
+      r.respuestas.comentario_adicional || "",
+      r.respuestas.nombre_contacto || "",
+      r.respuestas.email_contacto || "",
+      r.respuestas.telefono_contacto || ""
     ];
   });
   return { headers, filas };
@@ -817,8 +886,8 @@ function exportarXLSX() {
   // quien solo quiera ver la información de forma sencilla.
   const resumen = [["Indicador", "Valor"]];
   resumen.push(["Total de respuestas exportadas", registros.length]);
-  Object.entries(contarRespuestas("g1", registros)).forEach(([k,v]) => resumen.push([`Género · ${k}`, v]));
-  Object.entries(contarRespuestas("g5", registros)).forEach(([k,v]) => resumen.push([`Zona · ${k}`, v]));
+  Object.entries(contarRespuestas("g1", registros)).forEach(([k,v]) => resumen.push([`Sexo · ${k}`, v]));
+  Object.entries(contarRespuestas("g6", registros)).forEach(([k,v]) => resumen.push([`Zona · ${k}`, v]));
   const hojaResumen = XLSX.utils.aoa_to_sheet(resumen);
   hojaResumen["!cols"] = [{ wch: 30 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(libro, hojaResumen, "Resumen");
