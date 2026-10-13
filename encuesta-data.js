@@ -88,7 +88,7 @@ const ENCUESTA_SECCIONES = [
 
     { id:"g10", text:"¿Su discapacidad es de tipo?", type:"multi",
       condition:{q:"g8", equals:"Sí"},
-      options: ["Física (limitaciones de movilidad o motoras)", "Auditiva (sordera o pérdida auditiva)", "Sordoceguera (discapacidad visual y auditiva combinada)", "Intelectual (limitaciones en el aprendizaje y la comprensión)", "Psicosocial (diagnóstico de trastorno mental)", "Visual (Ceguera o perdida visual)", "Múltiple (dos o más de las discapacidades anteriores)"],
+      options: ["Física (limitaciones de movilidad o motoras)", "Auditiva (sordera o pérdida auditiva)", "Sordoceguera (discapacidad visual y auditiva combinada)", "Visual (Ceguera o perdida visual)", "Intelectual (limitaciones en el aprendizaje y la comprensión)", "Psicosocial (diagnóstico de trastorno mental)", "Múltiple (dos o más de las discapacidades anteriores)"],
       exclusive: ["Múltiple (dos o más de las discapacidades anteriores) "],
     }
   ]
